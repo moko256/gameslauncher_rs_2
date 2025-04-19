@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = ["app-*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace.dependencies]
+app-common = { path = "app-common", version = "*" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+future-incompatible = "forbid"

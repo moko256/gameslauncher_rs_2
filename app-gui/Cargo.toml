@@ -1,0 +1,14 @@
+[package]
+name = "app-gui"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+app-common = { workspace = true }
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "gameslauncher_rs_2_gui"
+path = "src/main.rs"
