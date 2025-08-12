@@ -8,7 +8,9 @@ use eframe::egui;
 use crate::{app::MyApp, system_font::set_system_fonts};
 
 fn main() -> eframe::Result {
+    #[cfg(debug_assertions)]
     env_logger::init();
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
         ..Default::default()

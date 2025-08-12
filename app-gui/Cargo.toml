@@ -6,7 +6,7 @@ edition.workspace = true
 [dependencies]
 app-common = { workspace = true }
 
-eframe = { version = "0.32.0", features = ["default"] }
+eframe = { version = "0.32.0", default-features = false, features = ["glow"] }
 env_logger = { version = "0.10", default-features = false, features = [
     "auto-color",
     "humantime",
