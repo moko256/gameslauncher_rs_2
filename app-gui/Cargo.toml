@@ -11,6 +11,8 @@ env_logger = { version = "0.10", default-features = false, features = [
     "auto-color",
     "humantime",
 ] }
+font-kit = "0.14.3"
+memmap2 = "0.9.7"
 
 [lints]
 workspace = true

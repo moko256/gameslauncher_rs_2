@@ -10,5 +10,5 @@ edition = "2024"
 app-common = { path = "app-common", version = "*" }
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
 future-incompatible = "forbid"
