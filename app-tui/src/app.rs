@@ -1,18 +1,19 @@
-use app_common::features::todo::todo_state::TodoState;
+use app_common::features::launcher::launcher_state::LauncherState;
 use color_eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Layout},
-    style::Stylize,
-    widgets::Paragraph,
+    style::{Color, Modifier, Stylize},
+    widgets::{List, ListState, Paragraph},
 };
 
 #[derive(Debug, Default)]
 pub struct App {
     running: bool,
     redraw: bool,
-    state: TodoState,
+    state: LauncherState,
+    list_state: ListState,
 }
 
 impl App {
@@ -26,9 +27,11 @@ impl App {
         self.running = true;
         while self.running {
             if self.redraw {
-                terminal.draw(|frame| self.render(frame))?;
-
                 self.redraw = false;
+
+                self.before_render();
+                terminal.draw(|frame| self.render(frame))?;
+                self.after_render();
             }
             self.handle_crossterm_events()?;
         }
@@ -39,38 +42,48 @@ impl App {
         self.redraw = true;
     }
 
+    fn before_render(&mut self) {
+        if self.list_state.selected() != self.state.selected_index {
+            self.list_state.select(self.state.selected_index);
+        }
+    }
+
     fn render(&mut self, frame: &mut Frame) {
         let vertical = Layout::vertical([
             Constraint::Min(1),
             Constraint::Length(1),
             Constraint::Length(1),
         ]);
-        let [todos_area, footer_area, input_area] = vertical.areas(frame.area());
+        let [list_area, footer_area, input_area] = vertical.areas(frame.area());
 
-        let buffer_height = todos_area.height;
-        let list_height = self.state.todos.len() as u16;
-        if buffer_height > list_height {
-            let empty_placeholder_height = buffer_height - list_height;
-            let empty_placeholder_top = todos_area.top() + buffer_height - empty_placeholder_height;
+        let items: Vec<&str> = self
+            .state
+            .data_filtered
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
 
-            for top in empty_placeholder_top..empty_placeholder_top + empty_placeholder_height {
-                let mut placeholder_line_area = Clone::clone(&todos_area);
-                placeholder_line_area.y = top;
+        let list = List::new(items)
+            .style(Color::White)
+            .highlight_style(Modifier::REVERSED)
+            .highlight_symbol("> ");
 
-                frame.render_widget(Paragraph::new("~"), placeholder_line_area);
-            }
-        }
+        frame.render_stateful_widget(list, list_area, &mut self.list_state);
 
-        let todos_text = self.state.todos.join("\n");
-        frame.render_widget(Paragraph::new(todos_text), todos_area);
-
-        let footer_text: &'static str = "[Todos] Press `Esc`or `Ctrl-C` to stop running.";
+        let footer_text: &'static str =
+            "[gameslauncher_rs_2] Press `Esc`or `Ctrl-C` to stop running.";
         frame.render_widget(Paragraph::new(footer_text).reversed().bold(), footer_area);
 
         frame.render_widget(
-            Paragraph::new(format!("New todo: {}", self.state.todo_content_add)),
+            Paragraph::new(format!("{}", self.state.filter_query)),
             input_area,
         );
+    }
+
+    fn after_render(&mut self) {
+        if !self.state.loaded {
+            self.state.fetch_data();
+        }
     }
 
     fn handle_crossterm_events(&mut self) -> Result<()> {
@@ -93,24 +106,34 @@ impl App {
             (_, KeyCode::Esc)
             | (KeyModifiers::CONTROL, KeyCode::Char('c') | KeyCode::Char('C')) => self.quit(),
             (_, KeyCode::Char(char)) => {
-                let new_input = self.state.todo_content_add.clone() + &String::from(char);
+                let new_filter = self.state.filter_query.clone() + &String::from(char);
 
-                self.state.on_input_todo_content(new_input);
+                self.state.update_filter(new_filter);
                 self.redraw();
             }
             (_, KeyCode::Backspace) => {
-                let len = self.state.todo_content_add.len();
-                let new_input = if len <= 1 {
+                let len = self.state.filter_query.len();
+                let new_filter = if len <= 1 {
                     String::new()
                 } else {
-                    self.state.todo_content_add[..(len - 1)].to_string()
+                    self.state.filter_query[..(len - 1)].to_string()
                 };
 
-                self.state.on_input_todo_content(new_input);
+                self.state.update_filter(new_filter);
                 self.redraw();
             }
             (_, KeyCode::Enter) => {
-                self.state.on_click_add();
+                self.state.launch_selected();
+                self.redraw();
+            }
+            (_, KeyCode::Up) => {
+                self.list_state.select_previous();
+                self.state.update_selected(self.list_state.selected());
+                self.redraw();
+            }
+            (_, KeyCode::Down) => {
+                self.list_state.select_next();
+                self.state.update_selected(self.list_state.selected());
                 self.redraw();
             }
             _ => {}
