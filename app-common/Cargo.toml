@@ -3,7 +3,14 @@ name = "app-common"
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = ["use-executable-dir"]
+use-current-dir = []
+use-executable-dir = []
+
 [dependencies]
+walkdir = "2.5.0"
+mini_natural_sort = { git = "https://github.com/moko256/mini_natural_sort_rust.git", tag = "v2.0.1" }
 
 [lints]
 workspace = true

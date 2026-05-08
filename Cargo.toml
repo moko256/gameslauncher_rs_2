@@ -12,3 +12,9 @@ app-common = { path = "app-common", version = "*" }
 [workspace.lints.rust]
 unsafe_code = "deny"
 future-incompatible = "forbid"
+
+[profile.release]
+opt-level = 's'
+lto = true
+codegen-units = 1
+panic = 'abort'

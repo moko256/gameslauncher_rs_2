@@ -81,6 +81,10 @@ checksum = "fc7eb209b1518d6bb87b283c20095f5228ecda460da70b44f0802523dea6da04"
 [[package]]
 name = "app-common"
 version = "0.1.0"
+dependencies = [
+ "mini_natural_sort",
+ "walkdir",
+]
 
 [[package]]
 name = "app-gui"
@@ -1369,6 +1373,11 @@ checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
 ]
+
+[[package]]
+name = "mini_natural_sort"
+version = "2.0.1"
+source = "git+https://github.com/moko256/mini_natural_sort_rust.git?tag=v2.0.1#2874121d640ed46fbe8a1895810e1c8ebf56c4ae"
 
 [[package]]
 name = "miniz_oxide"

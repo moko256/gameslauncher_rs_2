@@ -1,4 +1,4 @@
-use app_common::features::launcher::launcher_state::LauncherState;
+use app_common::features::launcher::{launch_item::LaunchItem, launcher_state::LauncherState};
 use color_eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
@@ -8,12 +8,32 @@ use ratatui::{
     widgets::{List, ListState, Paragraph},
 };
 
+#[derive(Debug)]
+pub enum StopReason {
+    Exit,
+    LaunchApp,
+}
+
+impl Default for StopReason {
+    fn default() -> Self {
+        Self::Exit
+    }
+}
+
+#[derive(Debug)]
+pub struct StopDetails {
+    pub stop_reason: StopReason,
+    pub selected_item: Option<LaunchItem>,
+}
+
 #[derive(Debug, Default)]
 pub struct App {
     running: bool,
+    stop_reason: StopReason,
     redraw: bool,
     state: LauncherState,
     list_state: ListState,
+    list_page_size: u16,
 }
 
 impl App {
@@ -21,7 +41,7 @@ impl App {
         Self::default()
     }
 
-    pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
+    pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<StopDetails> {
         self.redraw = true;
 
         self.running = true;
@@ -35,11 +55,19 @@ impl App {
             }
             self.handle_crossterm_events()?;
         }
-        Ok(())
+        Ok(StopDetails {
+            stop_reason: self.stop_reason,
+            selected_item: self.state.get_selected(),
+        })
     }
 
     fn redraw(&mut self) {
         self.redraw = true;
+    }
+
+    fn quit(&mut self, stop_reason: StopReason) {
+        self.running = false;
+        self.stop_reason = stop_reason;
     }
 
     fn before_render(&mut self) {
@@ -55,16 +83,19 @@ impl App {
             Constraint::Length(1),
         ]);
         let [list_area, footer_area, input_area] = vertical.areas(frame.area());
+        self.list_page_size = list_area.height;
 
-        let items: Vec<&str> = self
+        let items: Vec<String> = self
             .state
             .data_filtered
             .iter()
-            .map(|s| s.as_str())
+            .map(|s| format!("[{}]: {}", s.id, s.name))
             .collect();
 
-        let list = List::new(items)
-            .style(Color::White)
+        let items_ref: Vec<&str> = items.iter().map(|s| s.as_ref()).collect();
+
+        let list = List::new(items_ref)
+            .style(Color::DarkGray)
             .highlight_style(Modifier::REVERSED)
             .highlight_symbol("> ");
 
@@ -72,10 +103,15 @@ impl App {
 
         let footer_text: &'static str =
             "[gameslauncher_rs_2] Press `Esc`or `Ctrl-C` to stop running.";
-        frame.render_widget(Paragraph::new(footer_text).reversed().bold(), footer_area);
+        frame.render_widget(
+            Paragraph::new(footer_text)
+                .style(Color::DarkGray)
+                .reversed(),
+            footer_area,
+        );
 
         frame.render_widget(
-            Paragraph::new(format!("{}", self.state.filter_query)),
+            Paragraph::new(format!("{}", self.state.filter_query)).style(Color::DarkGray),
             input_area,
         );
     }
@@ -104,7 +140,9 @@ impl App {
     fn on_key_event(&mut self, key: KeyEvent) {
         match (key.modifiers, key.code) {
             (_, KeyCode::Esc)
-            | (KeyModifiers::CONTROL, KeyCode::Char('c') | KeyCode::Char('C')) => self.quit(),
+            | (KeyModifiers::CONTROL, KeyCode::Char('c') | KeyCode::Char('C')) => {
+                self.quit(StopReason::Exit)
+            }
             (_, KeyCode::Char(char)) => {
                 let new_filter = self.state.filter_query.clone() + &String::from(char);
 
@@ -123,8 +161,7 @@ impl App {
                 self.redraw();
             }
             (_, KeyCode::Enter) => {
-                self.state.launch_selected();
-                self.redraw();
+                self.quit(StopReason::LaunchApp);
             }
             (_, KeyCode::Up) => {
                 self.list_state.select_previous();
@@ -136,11 +173,17 @@ impl App {
                 self.state.update_selected(self.list_state.selected());
                 self.redraw();
             }
+            (_, KeyCode::PageUp) => {
+                self.list_state.scroll_up_by(self.list_page_size);
+                self.state.update_selected(self.list_state.selected());
+                self.redraw();
+            }
+            (_, KeyCode::PageDown) => {
+                self.list_state.scroll_down_by(self.list_page_size);
+                self.state.update_selected(self.list_state.selected());
+                self.redraw();
+            }
             _ => {}
         }
-    }
-
-    fn quit(&mut self) {
-        self.running = false;
     }
 }
